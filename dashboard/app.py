@@ -15,14 +15,14 @@ ROOT = Path(__file__).resolve().parents[1]
 EXPORT_DIR = ROOT / "data" / "exports"
 DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 DAY_LABELS = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
-ACCENT = "#3ff7c6"
-ACCENT_BLUE = "#7bb7ff"
-ACCENT_AMBER = "#ffd166"
-TEXT = "#e9fbff"
-MUTED = "#93a7b3"
-PANEL = "rgba(10, 18, 26, 0.86)"
-GRID = "rgba(147, 167, 179, 0.14)"
-COLORWAY = [ACCENT, ACCENT_BLUE, ACCENT_AMBER, "#ff6b8a", "#a7ff6a", "#d59cff"]
+ACCENT = "#39ff14"
+ACCENT_BLUE = "#00a3ff"
+ACCENT_AMBER = "#f6c85f"
+TEXT = "#f5f7fa"
+MUTED = "#8f9baa"
+PANEL = "rgba(7, 11, 15, 0.78)"
+GRID = "rgba(255, 255, 255, 0.10)"
+COLORWAY = [ACCENT_BLUE, ACCENT, ACCENT_AMBER, "#ff3d71", "#ffffff", "#7c5cff"]
 
 
 load_dotenv(ROOT / ".env")
@@ -44,25 +44,28 @@ st.markdown(
         --muted: {MUTED};
         --panel: {PANEL};
         --grid: {GRID};
-        --line: rgba(63, 247, 198, 0.26);
+        --line: rgba(57, 255, 20, 0.28);
+        --glass: rgba(9, 14, 20, 0.72);
+        --glass-strong: rgba(7, 10, 14, 0.88);
     }}
 
     .stApp {{
         color: var(--text);
         background:
-            linear-gradient(135deg, rgba(6, 10, 14, 0.98) 0%, rgba(8, 13, 19, 0.98) 48%, rgba(9, 18, 18, 0.98) 100%),
-            repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 72px),
-            repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 72px);
+            linear-gradient(145deg, #020305 0%, #05090e 42%, #070b10 100%),
+            repeating-linear-gradient(90deg, rgba(0,163,255,0.055) 0 1px, transparent 1px 68px),
+            repeating-linear-gradient(0deg, rgba(57,255,20,0.035) 0 1px, transparent 1px 68px);
     }}
 
     [data-testid="stHeader"] {{
-        background: rgba(6, 10, 14, 0.72);
+        background: rgba(2, 3, 5, 0.82);
         backdrop-filter: blur(14px);
     }}
 
     [data-testid="stSidebar"] {{
-        background: rgba(6, 11, 16, 0.96);
-        border-right: 1px solid rgba(123, 183, 255, 0.18);
+        background: rgba(3, 5, 8, 0.97);
+        border-right: 1px solid rgba(0, 163, 255, 0.28);
+        box-shadow: 10px 0 35px rgba(0, 0, 0, 0.32);
     }}
 
     [data-testid="stSidebar"] h2,
@@ -71,9 +74,9 @@ st.markdown(
     }}
 
     .block-container {{
-        padding-top: 1.4rem;
+        padding-top: 1.15rem;
         padding-bottom: 2.6rem;
-        max-width: 1480px;
+        max-width: 1540px;
     }}
 
     h1, h2, h3, p, label, span {{
@@ -82,14 +85,17 @@ st.markdown(
 
     .ev-header {{
         position: relative;
-        padding: 22px 24px 20px 24px;
-        border: 1px solid rgba(63, 247, 198, 0.24);
+        padding: 20px 22px 18px 22px;
+        border: 1px solid rgba(0, 163, 255, 0.34);
         border-radius: 8px;
         background:
-            linear-gradient(110deg, rgba(12, 23, 32, 0.94), rgba(12, 18, 26, 0.84) 54%, rgba(14, 29, 27, 0.88));
-        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            linear-gradient(110deg, rgba(3, 8, 13, 0.96), rgba(6, 10, 14, 0.86) 52%, rgba(2, 14, 10, 0.92));
+        box-shadow:
+            0 22px 55px rgba(0, 0, 0, 0.44),
+            inset 0 1px 0 rgba(255, 255, 255, 0.10),
+            inset 0 -1px 0 rgba(57, 255, 20, 0.22);
         overflow: hidden;
-        margin-bottom: 18px;
+        margin-bottom: 10px;
     }}
 
     .ev-header::before {{
@@ -97,8 +103,9 @@ st.markdown(
         position: absolute;
         inset: 0;
         background:
-            repeating-linear-gradient(90deg, rgba(63, 247, 198, 0.08) 0 1px, transparent 1px 54px),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 46%);
+            repeating-linear-gradient(90deg, rgba(0, 163, 255, 0.12) 0 1px, transparent 1px 44px),
+            repeating-linear-gradient(0deg, rgba(57, 255, 20, 0.07) 0 1px, transparent 1px 44px),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.09), transparent 46%);
         pointer-events: none;
     }}
 
@@ -114,17 +121,19 @@ st.markdown(
     .eyebrow {{
         margin: 0 0 5px 0;
         color: var(--accent);
-        font-size: 0.78rem;
-        font-weight: 700;
+        font-size: 0.72rem;
+        font-weight: 780;
         text-transform: uppercase;
+        letter-spacing: 0.08em;
     }}
 
     .ev-title {{
         margin: 0;
         color: var(--text);
-        font-size: clamp(1.6rem, 3vw, 2.8rem);
-        font-weight: 760;
+        font-size: clamp(1.7rem, 3.1vw, 3.0rem);
+        font-weight: 820;
         line-height: 1.05;
+        text-transform: uppercase;
     }}
 
     .ev-subtitle {{
@@ -140,8 +149,8 @@ st.markdown(
         min-width: 184px;
         padding: 12px 14px;
         border-radius: 8px;
-        border: 1px solid rgba(123, 183, 255, 0.28);
-        background: rgba(8, 15, 22, 0.74);
+        border: 1px solid rgba(57, 255, 20, 0.36);
+        background: rgba(2, 7, 8, 0.76);
         text-align: right;
     }}
 
@@ -155,27 +164,74 @@ st.markdown(
 
     .status-badge .value {{
         display: block;
-        color: var(--accent-blue);
+        color: var(--accent);
         font-size: 1.05rem;
         font-weight: 760;
         margin-top: 2px;
     }}
 
-    .metric-tile {{
-        min-height: 116px;
-        padding: 16px 16px 14px 16px;
+    .ops-tape {{
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 1px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 8px;
-        border: 1px solid rgba(123, 183, 255, 0.20);
-        background: linear-gradient(145deg, rgba(10, 18, 26, 0.90), rgba(8, 15, 21, 0.82));
-        box-shadow: 0 14px 30px rgba(0,0,0,0.23), inset 0 1px 0 rgba(255,255,255,0.06);
+        overflow: hidden;
+        margin: 0 0 16px 0;
+        background: rgba(255, 255, 255, 0.10);
+        box-shadow: 0 14px 35px rgba(0, 0, 0, 0.28);
+    }}
+
+    .tape-cell {{
+        min-height: 58px;
+        padding: 10px 12px;
+        background: rgba(3, 7, 11, 0.84);
+    }}
+
+    .tape-label {{
+        display: block;
+        color: var(--muted);
+        font-size: 0.64rem;
+        font-weight: 780;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+    }}
+
+    .tape-value {{
+        display: block;
+        margin-top: 4px;
+        color: var(--text);
+        font-size: 1.02rem;
+        font-weight: 810;
+    }}
+
+    .tape-value.hot {{
+        color: var(--accent);
+    }}
+
+    .tape-value.blue {{
+        color: var(--accent-blue);
+    }}
+
+    .metric-tile {{
+        min-height: 112px;
+        padding: 15px 16px 14px 16px;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 163, 255, 0.28);
+        background: linear-gradient(145deg, rgba(6, 10, 14, 0.82), rgba(3, 7, 11, 0.72));
+        backdrop-filter: blur(14px);
+        box-shadow:
+            0 16px 34px rgba(0,0,0,0.30),
+            inset 0 1px 0 rgba(255,255,255,0.08);
     }}
 
     .metric-label {{
         color: var(--muted);
-        font-size: 0.76rem;
-        font-weight: 700;
+        font-size: 0.70rem;
+        font-weight: 800;
         text-transform: uppercase;
         margin-bottom: 8px;
+        letter-spacing: 0.06em;
     }}
 
     .metric-value {{
@@ -190,7 +246,8 @@ st.markdown(
         height: 3px;
         margin-top: 14px;
         border-radius: 2px;
-        background: linear-gradient(90deg, var(--accent), var(--accent-blue));
+        background: linear-gradient(90deg, var(--accent-blue), var(--accent));
+        box-shadow: 0 0 18px rgba(57, 255, 20, 0.42);
     }}
 
     .section-title {{
@@ -203,9 +260,9 @@ st.markdown(
     .insight-panel {{
         padding: 18px 20px;
         border-radius: 8px;
-        border: 1px solid rgba(63, 247, 198, 0.24);
-        background: linear-gradient(135deg, rgba(9, 18, 26, 0.90), rgba(10, 23, 22, 0.88));
-        box-shadow: 0 18px 38px rgba(0,0,0,0.25);
+        border: 1px solid rgba(57, 255, 20, 0.30);
+        background: linear-gradient(135deg, rgba(3, 8, 13, 0.88), rgba(4, 17, 10, 0.78));
+        box-shadow: 0 18px 38px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.08);
         margin-top: 12px;
     }}
 
@@ -213,10 +270,11 @@ st.markdown(
         margin: 0 0 8px 0;
         color: var(--accent);
         font-size: 1.1rem;
+        text-transform: uppercase;
     }}
 
     .insight-panel p {{
-        color: #cfe6ee;
+        color: #d7dde3;
         line-height: 1.55;
         margin: 0;
     }}
@@ -227,14 +285,28 @@ st.markdown(
     }}
 
     div[data-testid="stPlotlyChart"] {{
-        border: 1px solid rgba(123, 183, 255, 0.16);
+        border: 1px solid rgba(0, 163, 255, 0.20);
         border-radius: 8px;
-        background: rgba(8, 14, 20, 0.74);
+        background: rgba(3, 7, 11, 0.70);
+        backdrop-filter: blur(12px);
         padding: 6px;
-        box-shadow: 0 14px 32px rgba(0,0,0,0.22);
+        box-shadow: 0 18px 38px rgba(0,0,0,0.30);
+    }}
+
+    [data-baseweb="select"] > div,
+    [data-baseweb="input"] > div {{
+        background: rgba(3, 7, 11, 0.84);
+        border-color: rgba(0, 163, 255, 0.32);
+    }}
+
+    [data-testid="stCaptionContainer"] {{
+        color: var(--accent);
     }}
 
     @media (max-width: 760px) {{
+        .ops-tape {{
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }}
         .ev-header-content {{
             align-items: flex-start;
             flex-direction: column;
@@ -310,11 +382,24 @@ def metric_tile(label: str, value: str) -> None:
     )
 
 
+def ops_tape(items: list[tuple[str, str, str]]) -> None:
+    cells = "\n".join(
+        f"""
+        <div class="tape-cell">
+            <span class="tape-label">{label}</span>
+            <span class="tape-value {tone}">{value}</span>
+        </div>
+        """
+        for label, value, tone in items
+    )
+    st.markdown(f'<div class="ops-tape">{cells}</div>', unsafe_allow_html=True)
+
+
 def style_figure(fig: go.Figure, height: int) -> go.Figure:
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(7,12,18,0.70)",
+        plot_bgcolor="rgba(2,5,8,0.62)",
         colorway=COLORWAY,
         font=dict(color=TEXT, family="Inter, Segoe UI, Arial, sans-serif"),
         title=dict(font=dict(size=18, color=TEXT), x=0.02, xanchor="left"),
@@ -686,10 +771,9 @@ st.markdown(
         <div class="ev-header-content">
             <div>
                 <p class="eyebrow">Tesla Energy Portfolio Analytics</p>
-                <h1 class="ev-title">EV Charging Energy Optimization</h1>
+                <h1 class="ev-title">EV Energy Control Room</h1>
                 <p class="ev-subtitle">
-                    Real ACN charging-session analytics for load profiling, charger utilization,
-                    peak detection, and storage-aware smart charging strategy.
+                    ACN load telemetry // charger utilization // peak demand // storage dispatch
                 </p>
             </div>
             <div class="status-badge">
@@ -728,6 +812,27 @@ if kpis.empty:
     st.stop()
 
 kpi = kpis.iloc[0].fillna(0)
+heatmap = query_heatmap(selected_site, start_date, end_date)
+daily = query_daily(selected_site, start_date, end_date)
+load_curve = query_load_curve(selected_site, start_date, end_date)
+storage = query_storage(selected_site, start_date, end_date)
+
+peak_kw = float(load_curve["p95_kw"].max()) if not load_curve.empty else 0.0
+avg_utilization = float(daily["utilization_rate"].mean() * 100) if not daily.empty else 0.0
+shiftable_kwh = float(storage["shiftable_kwh"].sum()) if not storage.empty else 0.0
+savings_usd = float(storage["savings_usd"].sum()) if not storage.empty else 0.0
+
+ops_tape(
+    [
+        ("Grid Load P95", f"{peak_kw:,.1f} kW", "blue"),
+        ("Avg Utilization", f"{avg_utilization:,.1f}%", ""),
+        ("Storage Flex", format_compact(shiftable_kwh, " kWh"), "hot"),
+        ("Arbitrage", f"${savings_usd:,.0f}", "hot"),
+        ("Data Window", f"{start_date:%b %Y} - {end_date:%b %Y}", ""),
+        ("Control Mode", "CSV LIVE", "blue"),
+    ]
+)
+
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     metric_tile("Sessions", f"{int(kpi['sessions']):,}")
@@ -739,11 +844,6 @@ with col4:
     metric_tile("Avg Session", f"{kpi['avg_duration_hr']:.1f} hr")
 with col5:
     metric_tile("Avg Idle", f"{kpi['avg_idle_hr']:.1f} hr")
-
-heatmap = query_heatmap(selected_site, start_date, end_date)
-daily = query_daily(selected_site, start_date, end_date)
-load_curve = query_load_curve(selected_site, start_date, end_date)
-storage = query_storage(selected_site, start_date, end_date)
 
 left, right = st.columns([1.1, 0.9])
 with left:
@@ -758,9 +858,9 @@ with left:
         fig = px.imshow(
             matrix,
             aspect="auto",
-            color_continuous_scale=["#071018", "#14334a", ACCENT_BLUE, ACCENT, ACCENT_AMBER],
+            color_continuous_scale=["#03070b", "#052338", ACCENT_BLUE, ACCENT, "#ffffff"],
             labels={"x": "Hour", "y": "Day", "color": "kWh"},
-            title="Energy Consumption Heatmap",
+            title="Load Heatmap // kWh by Hour",
         )
         fig = style_figure(fig, 430)
         fig.update_coloraxes(colorbar=dict(title="kWh", tickfont=dict(color=MUTED)))
@@ -790,7 +890,7 @@ with right:
             )
         )
         fig = style_figure(fig, 430)
-        fig.update_layout(title="Peak Demand Curve", xaxis_title="Local Hour", yaxis_title="Estimated kW")
+        fig.update_layout(title="Peak Curve // Average vs P95", xaxis_title="Local Hour", yaxis_title="Estimated kW")
         st.plotly_chart(fig, width="stretch")
 
 bottom_left, bottom_right = st.columns(2)
@@ -815,7 +915,7 @@ with bottom_left:
             )
         )
         fig = style_figure(fig, 390)
-        fig.update_layout(title="Charger Utilization Trend", xaxis_title="Date", yaxis_title="Utilization (%)")
+        fig.update_layout(title="Utilization Signal // Daily Occupancy", xaxis_title="Date", yaxis_title="Utilization (%)")
         st.plotly_chart(fig, width="stretch")
 
 with bottom_right:
@@ -842,7 +942,7 @@ with bottom_right:
         )
         fig = style_figure(fig, 390)
         fig.update_layout(
-            title="Smart Charging Opportunity",
+            title="Storage Dispatch Window // Shiftable Load",
             xaxis_title="Month",
             yaxis_title="Shiftable kWh",
             yaxis2=dict(
@@ -863,7 +963,7 @@ if not storage.empty:
     st.markdown(
         f"""
         <div class="insight-panel">
-            <h3>Tesla Energy Recommendations</h3>
+            <h3>Energy Control Dispatch</h3>
             <p>
                 Shift approximately <strong>{total_shiftable:,.0f} kWh</strong> away from peak windows
                 across <strong>{int(flexible_sessions):,} flexible sessions</strong>, producing an estimated
