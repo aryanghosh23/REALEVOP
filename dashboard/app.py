@@ -15,6 +15,14 @@ ROOT = Path(__file__).resolve().parents[1]
 EXPORT_DIR = ROOT / "data" / "exports"
 DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 DAY_LABELS = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
+ACCENT = "#3ff7c6"
+ACCENT_BLUE = "#7bb7ff"
+ACCENT_AMBER = "#ffd166"
+TEXT = "#e9fbff"
+MUTED = "#93a7b3"
+PANEL = "rgba(10, 18, 26, 0.86)"
+GRID = "rgba(147, 167, 179, 0.14)"
+COLORWAY = [ACCENT, ACCENT_BLUE, ACCENT_AMBER, "#ff6b8a", "#a7ff6a", "#d59cff"]
 
 
 load_dotenv(ROOT / ".env")
@@ -23,6 +31,225 @@ st.set_page_config(
     page_title="EV Charging Energy Optimization",
     page_icon="EV",
     layout="wide",
+)
+
+st.markdown(
+    f"""
+    <style>
+    :root {{
+        --accent: {ACCENT};
+        --accent-blue: {ACCENT_BLUE};
+        --accent-amber: {ACCENT_AMBER};
+        --text: {TEXT};
+        --muted: {MUTED};
+        --panel: {PANEL};
+        --grid: {GRID};
+        --line: rgba(63, 247, 198, 0.26);
+    }}
+
+    .stApp {{
+        color: var(--text);
+        background:
+            linear-gradient(135deg, rgba(6, 10, 14, 0.98) 0%, rgba(8, 13, 19, 0.98) 48%, rgba(9, 18, 18, 0.98) 100%),
+            repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 72px),
+            repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 72px);
+    }}
+
+    [data-testid="stHeader"] {{
+        background: rgba(6, 10, 14, 0.72);
+        backdrop-filter: blur(14px);
+    }}
+
+    [data-testid="stSidebar"] {{
+        background: rgba(6, 11, 16, 0.96);
+        border-right: 1px solid rgba(123, 183, 255, 0.18);
+    }}
+
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {{
+        color: var(--text);
+    }}
+
+    .block-container {{
+        padding-top: 1.4rem;
+        padding-bottom: 2.6rem;
+        max-width: 1480px;
+    }}
+
+    h1, h2, h3, p, label, span {{
+        letter-spacing: 0;
+    }}
+
+    .ev-header {{
+        position: relative;
+        padding: 22px 24px 20px 24px;
+        border: 1px solid rgba(63, 247, 198, 0.24);
+        border-radius: 8px;
+        background:
+            linear-gradient(110deg, rgba(12, 23, 32, 0.94), rgba(12, 18, 26, 0.84) 54%, rgba(14, 29, 27, 0.88));
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+        margin-bottom: 18px;
+    }}
+
+    .ev-header::before {{
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+            repeating-linear-gradient(90deg, rgba(63, 247, 198, 0.08) 0 1px, transparent 1px 54px),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 46%);
+        pointer-events: none;
+    }}
+
+    .ev-header-content {{
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 18px;
+    }}
+
+    .eyebrow {{
+        margin: 0 0 5px 0;
+        color: var(--accent);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }}
+
+    .ev-title {{
+        margin: 0;
+        color: var(--text);
+        font-size: clamp(1.6rem, 3vw, 2.8rem);
+        font-weight: 760;
+        line-height: 1.05;
+    }}
+
+    .ev-subtitle {{
+        margin: 8px 0 0 0;
+        color: var(--muted);
+        max-width: 880px;
+        font-size: 0.98rem;
+        line-height: 1.45;
+    }}
+
+    .status-badge {{
+        flex: 0 0 auto;
+        min-width: 184px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        border: 1px solid rgba(123, 183, 255, 0.28);
+        background: rgba(8, 15, 22, 0.74);
+        text-align: right;
+    }}
+
+    .status-badge .label {{
+        display: block;
+        color: var(--muted);
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        font-weight: 700;
+    }}
+
+    .status-badge .value {{
+        display: block;
+        color: var(--accent-blue);
+        font-size: 1.05rem;
+        font-weight: 760;
+        margin-top: 2px;
+    }}
+
+    .metric-tile {{
+        min-height: 116px;
+        padding: 16px 16px 14px 16px;
+        border-radius: 8px;
+        border: 1px solid rgba(123, 183, 255, 0.20);
+        background: linear-gradient(145deg, rgba(10, 18, 26, 0.90), rgba(8, 15, 21, 0.82));
+        box-shadow: 0 14px 30px rgba(0,0,0,0.23), inset 0 1px 0 rgba(255,255,255,0.06);
+    }}
+
+    .metric-label {{
+        color: var(--muted);
+        font-size: 0.76rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }}
+
+    .metric-value {{
+        color: var(--text);
+        font-size: clamp(1.25rem, 2vw, 1.8rem);
+        font-weight: 790;
+        line-height: 1.05;
+    }}
+
+    .metric-accent {{
+        width: 44px;
+        height: 3px;
+        margin-top: 14px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, var(--accent), var(--accent-blue));
+    }}
+
+    .section-title {{
+        color: var(--text);
+        font-size: 1.02rem;
+        font-weight: 760;
+        margin: 20px 0 8px 0;
+    }}
+
+    .insight-panel {{
+        padding: 18px 20px;
+        border-radius: 8px;
+        border: 1px solid rgba(63, 247, 198, 0.24);
+        background: linear-gradient(135deg, rgba(9, 18, 26, 0.90), rgba(10, 23, 22, 0.88));
+        box-shadow: 0 18px 38px rgba(0,0,0,0.25);
+        margin-top: 12px;
+    }}
+
+    .insight-panel h3 {{
+        margin: 0 0 8px 0;
+        color: var(--accent);
+        font-size: 1.1rem;
+    }}
+
+    .insight-panel p {{
+        color: #cfe6ee;
+        line-height: 1.55;
+        margin: 0;
+    }}
+
+    [data-testid="stSelectbox"] > div,
+    [data-testid="stDateInput"] > div {{
+        border-radius: 8px;
+    }}
+
+    div[data-testid="stPlotlyChart"] {{
+        border: 1px solid rgba(123, 183, 255, 0.16);
+        border-radius: 8px;
+        background: rgba(8, 14, 20, 0.74);
+        padding: 6px;
+        box-shadow: 0 14px 32px rgba(0,0,0,0.22);
+    }}
+
+    @media (max-width: 760px) {{
+        .ev-header-content {{
+            align-items: flex-start;
+            flex-direction: column;
+        }}
+        .status-badge {{
+            width: 100%;
+            text-align: left;
+        }}
+        .metric-tile {{
+            min-height: 96px;
+        }}
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -58,6 +285,52 @@ def _exports_ready() -> bool:
         "smart_charging_opportunities.csv",
     ]
     return all((EXPORT_DIR / filename).exists() for filename in required)
+
+
+def format_compact(value: float, suffix: str = "") -> str:
+    if pd.isna(value):
+        return "0"
+    if abs(value) >= 1_000_000:
+        return f"{value / 1_000_000:.1f}M{suffix}"
+    if abs(value) >= 1_000:
+        return f"{value / 1_000:.1f}K{suffix}"
+    return f"{value:,.0f}{suffix}"
+
+
+def metric_tile(label: str, value: str) -> None:
+    st.markdown(
+        f"""
+        <div class="metric-tile">
+            <div class="metric-label">{label}</div>
+            <div class="metric-value">{value}</div>
+            <div class="metric-accent"></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def style_figure(fig: go.Figure, height: int) -> go.Figure:
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(7,12,18,0.70)",
+        colorway=COLORWAY,
+        font=dict(color=TEXT, family="Inter, Segoe UI, Arial, sans-serif"),
+        title=dict(font=dict(size=18, color=TEXT), x=0.02, xanchor="left"),
+        height=height,
+        margin=dict(l=24, r=24, t=64, b=34),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            x=0,
+            bgcolor="rgba(0,0,0,0)",
+        ),
+    )
+    fig.update_xaxes(gridcolor=GRID, zerolinecolor=GRID, title_font=dict(color=MUTED))
+    fig.update_yaxes(gridcolor=GRID, zerolinecolor=GRID, title_font=dict(color=MUTED))
+    return fig
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -335,14 +608,19 @@ def query_storage(site_id: str, start_date, end_date) -> pd.DataFrame:
         storage = _read_export("smart_charging_opportunities.csv")
         if storage.empty:
             return pd.DataFrame()
-        storage["connection_time"] = pd.to_datetime(storage["connection_time"])
+        storage["connection_time"] = pd.to_datetime(storage["connection_time"], utc=True)
         mask = (
             (storage["site_id"] == site_id)
             & (storage["connection_time"].dt.date >= start_date)
             & (storage["connection_time"].dt.date <= end_date)
         )
         storage = storage.loc[mask].copy()
-        storage["month_start"] = storage["connection_time"].dt.to_period("M").dt.to_timestamp()
+        storage["month_start"] = (
+            storage["connection_time"]
+            .dt.tz_convert(None)
+            .dt.to_period("M")
+            .dt.to_timestamp()
+        )
         return (
             storage.groupby("month_start", as_index=False)
             .agg(
@@ -375,14 +653,19 @@ def query_storage(site_id: str, start_date, end_date) -> pd.DataFrame:
     storage = _read_export("smart_charging_opportunities.csv")
     if storage.empty:
         return pd.DataFrame()
-    storage["connection_time"] = pd.to_datetime(storage["connection_time"])
+    storage["connection_time"] = pd.to_datetime(storage["connection_time"], utc=True)
     mask = (
         (storage["site_id"] == site_id)
         & (storage["connection_time"].dt.date >= start_date)
         & (storage["connection_time"].dt.date <= end_date)
     )
     storage = storage.loc[mask].copy()
-    storage["month_start"] = storage["connection_time"].dt.to_period("M").dt.to_timestamp()
+    storage["month_start"] = (
+        storage["connection_time"]
+        .dt.tz_convert(None)
+        .dt.to_period("M")
+        .dt.to_timestamp()
+    )
     return (
         storage.groupby("month_start", as_index=False)
         .agg(
@@ -394,9 +677,31 @@ def query_storage(site_id: str, start_date, end_date) -> pd.DataFrame:
     )
 
 
-st.title("EV Charging Energy Optimization")
-
 sites, min_date, max_date = load_filter_options()
+source_label = "CSV exports" if _exports_ready() else ("PostgreSQL" if db_available() else "No data")
+
+st.markdown(
+    f"""
+    <div class="ev-header">
+        <div class="ev-header-content">
+            <div>
+                <p class="eyebrow">Tesla Energy Portfolio Analytics</p>
+                <h1 class="ev-title">EV Charging Energy Optimization</h1>
+                <p class="ev-subtitle">
+                    Real ACN charging-session analytics for load profiling, charger utilization,
+                    peak detection, and storage-aware smart charging strategy.
+                </p>
+            </div>
+            <div class="status-badge">
+                <span class="label">Active Source</span>
+                <span class="value">{source_label}</span>
+            </div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 if not sites or min_date is None or max_date is None:
     st.info("No loaded charging data found. Run the ELT pipeline, then refresh this page.")
     st.code(
@@ -415,7 +720,6 @@ with st.sidebar:
         min_value=min_date.date(),
         max_value=max_date.date(),
     )
-    source_label = "PostgreSQL" if db_available() else "CSV exports"
     st.caption(f"Source: {source_label}")
 
 kpis = query_kpis(selected_site, start_date, end_date)
@@ -425,11 +729,16 @@ if kpis.empty:
 
 kpi = kpis.iloc[0].fillna(0)
 col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("Sessions", f"{int(kpi['sessions']):,}")
-col2.metric("Stations", f"{int(kpi['stations']):,}")
-col3.metric("Energy", f"{kpi['total_kwh']:,.0f} kWh")
-col4.metric("Avg Session", f"{kpi['avg_duration_hr']:.1f} hr")
-col5.metric("Avg Idle", f"{kpi['avg_idle_hr']:.1f} hr")
+with col1:
+    metric_tile("Sessions", f"{int(kpi['sessions']):,}")
+with col2:
+    metric_tile("Stations", f"{int(kpi['stations']):,}")
+with col3:
+    metric_tile("Energy", format_compact(float(kpi["total_kwh"]), " kWh"))
+with col4:
+    metric_tile("Avg Session", f"{kpi['avg_duration_hr']:.1f} hr")
+with col5:
+    metric_tile("Avg Idle", f"{kpi['avg_idle_hr']:.1f} hr")
 
 heatmap = query_heatmap(selected_site, start_date, end_date)
 daily = query_daily(selected_site, start_date, end_date)
@@ -449,12 +758,13 @@ with left:
         fig = px.imshow(
             matrix,
             aspect="auto",
-            color_continuous_scale="Viridis",
+            color_continuous_scale=["#071018", "#14334a", ACCENT_BLUE, ACCENT, ACCENT_AMBER],
             labels={"x": "Hour", "y": "Day", "color": "kWh"},
             title="Energy Consumption Heatmap",
         )
-        fig.update_layout(height=430, margin=dict(l=20, r=20, t=60, b=20))
-        st.plotly_chart(fig, use_container_width=True)
+        fig = style_figure(fig, 430)
+        fig.update_coloraxes(colorbar=dict(title="kWh", tickfont=dict(color=MUTED)))
+        st.plotly_chart(fig, width="stretch")
 
 with right:
     if not load_curve.empty:
@@ -465,6 +775,8 @@ with right:
                 y=load_curve["avg_kw"],
                 mode="lines+markers",
                 name="Average kW",
+                line=dict(width=3, color=ACCENT),
+                marker=dict(size=7, color=ACCENT),
             )
         )
         fig.add_trace(
@@ -473,17 +785,13 @@ with right:
                 y=load_curve["p95_kw"],
                 mode="lines+markers",
                 name="P95 kW",
+                line=dict(width=3, color=ACCENT_AMBER),
+                marker=dict(size=7, color=ACCENT_AMBER),
             )
         )
-        fig.update_layout(
-            title="Peak Demand Curve",
-            xaxis_title="Local Hour",
-            yaxis_title="Estimated kW",
-            height=430,
-            margin=dict(l=20, r=20, t=60, b=20),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        fig = style_figure(fig, 430)
+        fig.update_layout(title="Peak Demand Curve", xaxis_title="Local Hour", yaxis_title="Estimated kW")
+        st.plotly_chart(fig, width="stretch")
 
 bottom_left, bottom_right = st.columns(2)
 with bottom_left:
@@ -494,6 +802,7 @@ with bottom_left:
                 x=daily["metric_date"],
                 y=daily["utilization_rate"] * 100,
                 name="Daily utilization",
+                marker=dict(color="rgba(123, 183, 255, 0.78)", line=dict(color=ACCENT_BLUE, width=1)),
             )
         )
         fig.add_trace(
@@ -502,16 +811,12 @@ with bottom_left:
                 y=daily["rolling_7d_utilization"] * 100,
                 mode="lines",
                 name="7-day average",
+                line=dict(width=3, color=ACCENT),
             )
         )
-        fig.update_layout(
-            title="Charger Utilization Trend",
-            xaxis_title="Date",
-            yaxis_title="Utilization (%)",
-            height=390,
-            margin=dict(l=20, r=20, t=60, b=20),
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        fig = style_figure(fig, 390)
+        fig.update_layout(title="Charger Utilization Trend", xaxis_title="Date", yaxis_title="Utilization (%)")
+        st.plotly_chart(fig, width="stretch")
 
 with bottom_right:
     if not storage.empty:
@@ -521,6 +826,7 @@ with bottom_right:
                 x=storage["month_start"],
                 y=storage["shiftable_kwh"],
                 name="Shiftable kWh",
+                marker=dict(color="rgba(63, 247, 198, 0.76)", line=dict(color=ACCENT, width=1)),
             )
         )
         fig.add_trace(
@@ -530,29 +836,43 @@ with bottom_right:
                 mode="lines+markers",
                 yaxis="y2",
                 name="Savings",
+                line=dict(width=3, color=ACCENT_AMBER),
+                marker=dict(size=7, color=ACCENT_AMBER),
             )
         )
+        fig = style_figure(fig, 390)
         fig.update_layout(
             title="Smart Charging Opportunity",
             xaxis_title="Month",
             yaxis_title="Shiftable kWh",
-            yaxis2=dict(title="Savings ($)", overlaying="y", side="right"),
-            height=390,
-            margin=dict(l=20, r=20, t=60, b=20),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+            yaxis2=dict(
+                title="Savings ($)",
+                overlaying="y",
+                side="right",
+                gridcolor="rgba(0,0,0,0)",
+                title_font=dict(color=MUTED),
+                tickfont=dict(color=MUTED),
+            ),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 if not storage.empty:
     total_shiftable = storage["shiftable_kwh"].sum()
     total_savings = storage["savings_usd"].sum()
     flexible_sessions = storage["flexible_sessions"].sum()
-    st.subheader("Tesla Energy Recommendations")
-    st.write(
-        f"Shift approximately **{total_shiftable:,.0f} kWh** away from peak windows "
-        f"across **{int(flexible_sessions):,} flexible sessions**, producing an estimated "
-        f"**${total_savings:,.0f}** in energy arbitrage before demand-charge reductions. "
-        "The highest-value controls are workplace smart charging, Powerwall-scale buffering "
-        "for small sites, Megapack dispatch for fleet or campus peaks, and VPP enrollment "
-        "when aggregate load can respond predictably."
+    st.markdown(
+        f"""
+        <div class="insight-panel">
+            <h3>Tesla Energy Recommendations</h3>
+            <p>
+                Shift approximately <strong>{total_shiftable:,.0f} kWh</strong> away from peak windows
+                across <strong>{int(flexible_sessions):,} flexible sessions</strong>, producing an estimated
+                <strong>${total_savings:,.0f}</strong> in energy arbitrage before demand-charge reductions.
+                The highest-value controls are workplace smart charging, Powerwall-scale buffering for compact
+                sites, Megapack dispatch for campus peaks, and VPP enrollment when aggregate load can respond
+                predictably.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
