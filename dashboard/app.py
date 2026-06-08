@@ -371,25 +371,25 @@ def format_compact(value: float, suffix: str = "") -> str:
 
 def metric_tile(label: str, value: str) -> None:
     st.markdown(
-        f"""
-        <div class="metric-tile">
-            <div class="metric-label">{label}</div>
-            <div class="metric-value">{value}</div>
-            <div class="metric-accent"></div>
-        </div>
-        """,
+        (
+            '<div class="metric-tile">'
+            f'<div class="metric-label">{label}</div>'
+            f'<div class="metric-value">{value}</div>'
+            '<div class="metric-accent"></div>'
+            "</div>"
+        ),
         unsafe_allow_html=True,
     )
 
 
 def ops_tape(items: list[tuple[str, str, str]]) -> None:
-    cells = "\n".join(
-        f"""
-        <div class="tape-cell">
-            <span class="tape-label">{label}</span>
-            <span class="tape-value {tone}">{value}</span>
-        </div>
-        """
+    cells = "".join(
+        (
+            '<div class="tape-cell">'
+            f'<span class="tape-label">{label}</span>'
+            f'<span class="tape-value {tone}">{value}</span>'
+            "</div>"
+        )
         for label, value, tone in items
     )
     st.markdown(f'<div class="ops-tape">{cells}</div>', unsafe_allow_html=True)

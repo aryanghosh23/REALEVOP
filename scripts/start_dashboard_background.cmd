@@ -8,6 +8,6 @@ if not exist ".venv\Scripts\python.exe" (
     exit /b 1
 )
 
-start "REALEVOP Dashboard" /min "%ComSpec%" /c "scripts\run_streamlit_logged.cmd"
+start "REALEVOP Dashboard" /D "%~dp0.." /min "%ComSpec%" /c ""%~dp0run_streamlit_logged.cmd""
 echo Dashboard starting at http://127.0.0.1:8501
 echo Runtime log: logs\streamlit-runtime.log
