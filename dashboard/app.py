@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import io
+import json
 import os
+import re
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -12,6 +16,17 @@ from sqlalchemy import create_engine, text
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from ev_charging_analytics.local_exports import (  # noqa: E402
+    build_daily_metrics,
+    build_hourly_site_load,
+    build_smart_charging_opportunities,
+)
+from ev_charging_analytics.transform import normalize_sessions  # noqa: E402
+
 EXPORT_DIR = ROOT / "data" / "exports"
 DAY_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 DAY_LABELS = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
@@ -23,6 +38,7 @@ MUTED = "#8f9baa"
 PANEL = "rgba(7, 11, 15, 0.78)"
 GRID = "rgba(255, 255, 255, 0.10)"
 COLORWAY = [ACCENT_BLUE, ACCENT, ACCENT_AMBER, "#ff3d71", "#ffffff", "#7c5cff"]
+ACTIVE_DATA: dict[str, pd.DataFrame | str] | None = None
 
 
 load_dotenv(ROOT / ".env")
@@ -359,6 +375,264 @@ def _exports_ready() -> bool:
     return all((EXPORT_DIR / filename).exists() for filename in required)
 
 
+def _active_ready() -> bool:
+    return ACTIVE_DATA is not None or _exports_ready()
+
+
+def _active_table(filename: str) -> pd.DataFrame:
+    if ACTIVE_DATA is not None:
+        key = filename.removesuffix(".csv")
+        value = ACTIVE_DATA.get(key)
+        if isinstance(value, pd.DataFrame):
+            return value.copy()
+    return _read_export(filename)
+
+
+def _clean_column_name(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(name).lower())
+
+
+def _find_column(df: pd.DataFrame, candidates: list[str]) -> str | None:
+    lookup = {_clean_column_name(column): column for column in df.columns}
+    for candidate in candidates:
+        column = lookup.get(_clean_column_name(candidate))
+        if column is not None:
+            return column
+    return None
+
+
+def _parse_duration_minutes(series: pd.Series) -> pd.Series:
+    numeric = pd.to_numeric(series, errors="coerce")
+    timedeltas = pd.to_timedelta(series.astype(str), errors="coerce")
+    duration_min = timedeltas.dt.total_seconds() / 60.0
+    return duration_min.fillna(numeric)
+
+
+def _coerce_uploaded_sessions(df: pd.DataFrame, file_stem: str) -> pd.DataFrame:
+    start_col = _find_column(
+        df,
+        [
+            "connection_time",
+            "connectionTime",
+            "start_time",
+            "start time",
+            "start date",
+            "start datetime",
+            "started_at",
+            "session_start",
+            "charging_start",
+            "plug_in_time",
+            "plugin time",
+        ],
+    )
+    end_col = _find_column(
+        df,
+        [
+            "disconnect_time",
+            "disconnectTime",
+            "end_time",
+            "end time",
+            "end date",
+            "end datetime",
+            "ended_at",
+            "session_end",
+            "charging_end",
+            "unplug_time",
+            "unplug time",
+        ],
+    )
+    energy_col = _find_column(
+        df,
+        [
+            "kwh_delivered",
+            "kWhDelivered",
+            "total_kwh",
+            "total kwh",
+            "energy_kwh",
+            "energy kwh",
+            "energy",
+            "kwh",
+            "energy_consumed",
+            "energy consumed",
+            "consumed kwh",
+            "power consumed",
+        ],
+    )
+
+    if start_col is None or energy_col is None:
+        raise ValueError(
+            "CSV upload needs at least a session start time and energy/kWh column."
+        )
+
+    session_col = _find_column(
+        df, ["session_id", "sessionID", "transaction_id", "transaction id", "id"]
+    )
+    site_col = _find_column(
+        df, ["site_id", "siteID", "site", "location", "location_name", "city"]
+    )
+    station_col = _find_column(
+        df,
+        [
+            "station_id",
+            "stationID",
+            "station",
+            "charge_point_id",
+            "charge point id",
+            "chargepointid",
+            "charger_id",
+            "charger",
+            "evse_id",
+            "connector_id",
+            "charge device id",
+            "chargeplace scotland reference",
+        ],
+    )
+    duration_col = _find_column(
+        df,
+        [
+            "session_duration_min",
+            "duration",
+            "total duration",
+            "connected time",
+            "connection duration",
+        ],
+    )
+    charging_duration_col = _find_column(
+        df,
+        [
+            "charging_duration_min",
+            "charging time",
+            "charge time",
+            "charging duration",
+        ],
+    )
+    idle_col = _find_column(df, ["idle_duration_min", "idle time", "idle duration"])
+
+    connection_time = pd.to_datetime(df[start_col], errors="coerce", utc=True)
+    disconnect_time = (
+        pd.to_datetime(df[end_col], errors="coerce", utc=True)
+        if end_col is not None
+        else pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns, UTC]")
+    )
+
+    duration_min = (
+        _parse_duration_minutes(df[duration_col])
+        if duration_col is not None
+        else (disconnect_time - connection_time).dt.total_seconds() / 60.0
+    )
+    missing_end = disconnect_time.isna() & duration_min.notna()
+    disconnect_time.loc[missing_end] = connection_time.loc[missing_end] + pd.to_timedelta(
+        duration_min.loc[missing_end], unit="m"
+    )
+    duration_min = (disconnect_time - connection_time).dt.total_seconds() / 60.0
+
+    charging_duration_min = (
+        _parse_duration_minutes(df[charging_duration_col])
+        if charging_duration_col is not None
+        else duration_min
+    )
+    idle_duration_min = (
+        _parse_duration_minutes(df[idle_col])
+        if idle_col is not None
+        else (duration_min - charging_duration_min).clip(lower=0)
+    )
+
+    kwh = pd.to_numeric(df[energy_col], errors="coerce")
+    connection_local = connection_time.dt.tz_convert(None)
+    disconnect_local = disconnect_time.dt.tz_convert(None)
+    session_hours = duration_min / 60.0
+
+    fact = pd.DataFrame(
+        {
+            "session_id": df[session_col].astype(str)
+            if session_col is not None
+            else [f"upload-{idx + 1:06d}" for idx in range(len(df))],
+            "acn_id": pd.NA,
+            "site_id": df[site_col].astype(str) if site_col is not None else file_stem,
+            "cluster_id": "uploaded",
+            "station_id": df[station_col].astype(str)
+            if station_col is not None
+            else "uploaded_station",
+            "space_id": df[station_col].astype(str)
+            if station_col is not None
+            else "uploaded_station",
+            "connection_time": connection_time,
+            "disconnect_time": disconnect_time,
+            "done_charging_time": disconnect_time,
+            "connection_time_local": connection_local,
+            "disconnect_time_local": disconnect_local,
+            "connection_date": connection_local.dt.date,
+            "connection_hour": connection_local.dt.hour,
+            "connection_dow": connection_local.dt.dayofweek,
+            "connection_month": connection_local.dt.to_period("M").astype(str),
+            "is_weekend": connection_local.dt.dayofweek.isin([5, 6]),
+            "kwh_delivered": kwh,
+            "session_duration_min": duration_min,
+            "charging_duration_min": charging_duration_min,
+            "idle_duration_min": idle_duration_min,
+            "avg_power_kw": kwh / session_hours.replace(0, pd.NA),
+            "avg_charging_power_kw": kwh
+            / (charging_duration_min / 60.0).replace(0, pd.NA),
+            "wh_per_mile": pd.NA,
+            "kwh_requested": pd.NA,
+            "miles_requested": pd.NA,
+            "minutes_available": duration_min,
+            "requested_departure": pd.NaT,
+            "payment_required": pd.NA,
+            "user_input_modified_at": pd.NaT,
+            "energy_request_gap_kwh": pd.NA,
+            "user_id_hash": pd.NA,
+            "timezone": "uploaded",
+            "quality_flag": "valid",
+        }
+    )
+    valid = (
+        fact["connection_time"].notna()
+        & fact["disconnect_time"].notna()
+        & fact["kwh_delivered"].notna()
+        & (fact["kwh_delivered"] >= 0)
+        & (fact["session_duration_min"] > 0)
+    )
+    fact = fact.loc[valid].drop_duplicates(subset=["session_id"], keep="last")
+    if fact.empty:
+        raise ValueError("No valid charging sessions were found in the upload.")
+    return fact.sort_values("connection_time").reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
+def parse_uploaded_dataset(file_name: str, file_bytes: bytes) -> dict[str, pd.DataFrame | str]:
+    file_stem = Path(file_name).stem.lower().replace(" ", "_")
+    suffix = Path(file_name).suffix.lower()
+
+    if suffix == ".json":
+        payload = json.loads(file_bytes.decode("utf-8-sig"))
+        records = (
+            payload
+            if isinstance(payload, list)
+            else payload.get("_items") or payload.get("items") or payload.get("sessions") or []
+        )
+        if not records:
+            raise ValueError("JSON upload did not contain ACN-style session records.")
+        fact = normalize_sessions(records, fallback_site_id=file_stem)
+        fact["site_id"] = fact["site_id"].replace({"0002": "caltech"})
+    elif suffix == ".csv":
+        uploaded_df = pd.read_csv(io.BytesIO(file_bytes))
+        fact = _coerce_uploaded_sessions(uploaded_df, file_stem)
+    else:
+        raise ValueError("Only CSV and JSON uploads are supported.")
+
+    hourly = build_hourly_site_load(fact)
+    daily = build_daily_metrics(fact)
+    storage = build_smart_charging_opportunities(fact, hourly)
+    return {
+        "sessions": fact,
+        "hourly_site_load": hourly,
+        "daily_site_metrics": daily,
+        "smart_charging_opportunities": storage,
+        "label": f"Uploaded: {Path(file_name).name}",
+    }
+
+
 def format_compact(value: float, suffix: str = "") -> str:
     if pd.isna(value):
         return "0"
@@ -429,8 +703,8 @@ def read_sql(query: str, params: dict | None = None) -> pd.DataFrame:
 
 
 def load_filter_options() -> tuple[list[str], pd.Timestamp | None, pd.Timestamp | None]:
-    if _exports_ready():
-        sessions = _read_export("sessions.csv")
+    if _active_ready():
+        sessions = _active_table("sessions.csv")
         if not sessions.empty:
             sessions["connection_date"] = pd.to_datetime(sessions["connection_date"])
             return (
@@ -451,7 +725,7 @@ def load_filter_options() -> tuple[list[str], pd.Timestamp | None, pd.Timestamp 
         """
     )
     if df.empty:
-        sessions = _read_export("sessions.csv")
+        sessions = _active_table("sessions.csv")
         if sessions.empty:
             return [], None, None
         sessions["connection_date"] = pd.to_datetime(sessions["connection_date"])
@@ -467,15 +741,15 @@ def load_filter_options() -> tuple[list[str], pd.Timestamp | None, pd.Timestamp 
 
 
 def db_available() -> bool:
-    if _exports_ready():
+    if _active_ready():
         return False
     probe = read_sql("SELECT 1 AS ok")
     return not probe.empty
 
 
 def query_kpis(site_id: str, start_date, end_date) -> pd.DataFrame:
-    if _exports_ready():
-        sessions = _read_export("sessions.csv")
+    if _active_ready():
+        sessions = _active_table("sessions.csv")
         if sessions.empty:
             return pd.DataFrame()
         sessions["connection_date"] = pd.to_datetime(sessions["connection_date"]).dt.date
@@ -516,7 +790,7 @@ def query_kpis(site_id: str, start_date, end_date) -> pd.DataFrame:
     if not df.empty:
         return df
 
-    sessions = _read_export("sessions.csv")
+    sessions = _active_table("sessions.csv")
     if sessions.empty:
         return pd.DataFrame()
     sessions["connection_date"] = pd.to_datetime(sessions["connection_date"]).dt.date
@@ -541,8 +815,8 @@ def query_kpis(site_id: str, start_date, end_date) -> pd.DataFrame:
 
 
 def query_heatmap(site_id: str, start_date, end_date) -> pd.DataFrame:
-    if _exports_ready():
-        hourly = _read_export("hourly_site_load.csv")
+    if _active_ready():
+        hourly = _active_table("hourly_site_load.csv")
         if hourly.empty:
             return pd.DataFrame()
         hourly["hour_bucket_local"] = pd.to_datetime(hourly["hour_bucket_local"])
@@ -575,7 +849,7 @@ def query_heatmap(site_id: str, start_date, end_date) -> pd.DataFrame:
         {"site_id": site_id, "start_date": str(start_date), "end_date": str(end_date)},
     )
     if df.empty:
-        hourly = _read_export("hourly_site_load.csv")
+        hourly = _active_table("hourly_site_load.csv")
         if hourly.empty:
             return pd.DataFrame()
         hourly["hour_bucket_local"] = pd.to_datetime(hourly["hour_bucket_local"])
@@ -595,8 +869,8 @@ def query_heatmap(site_id: str, start_date, end_date) -> pd.DataFrame:
 
 
 def query_daily(site_id: str, start_date, end_date) -> pd.DataFrame:
-    if _exports_ready():
-        df = _read_export("daily_site_metrics.csv")
+    if _active_ready():
+        df = _active_table("daily_site_metrics.csv")
         if df.empty:
             return df
         df["metric_date"] = pd.to_datetime(df["metric_date"]).dt.date
@@ -625,7 +899,7 @@ def query_daily(site_id: str, start_date, end_date) -> pd.DataFrame:
         {"site_id": site_id, "start_date": str(start_date), "end_date": str(end_date)},
     )
     if df.empty:
-        df = _read_export("daily_site_metrics.csv")
+        df = _active_table("daily_site_metrics.csv")
         if df.empty:
             return df
         df["metric_date"] = pd.to_datetime(df["metric_date"]).dt.date
@@ -639,8 +913,8 @@ def query_daily(site_id: str, start_date, end_date) -> pd.DataFrame:
 
 
 def query_load_curve(site_id: str, start_date, end_date) -> pd.DataFrame:
-    if _exports_ready():
-        hourly = _read_export("hourly_site_load.csv")
+    if _active_ready():
+        hourly = _active_table("hourly_site_load.csv")
         if hourly.empty:
             return pd.DataFrame()
         hourly["hour_bucket_local"] = pd.to_datetime(hourly["hour_bucket_local"])
@@ -672,7 +946,7 @@ def query_load_curve(site_id: str, start_date, end_date) -> pd.DataFrame:
     if not df.empty:
         return df
 
-    hourly = _read_export("hourly_site_load.csv")
+    hourly = _active_table("hourly_site_load.csv")
     if hourly.empty:
         return pd.DataFrame()
     hourly["hour_bucket_local"] = pd.to_datetime(hourly["hour_bucket_local"])
@@ -689,8 +963,8 @@ def query_load_curve(site_id: str, start_date, end_date) -> pd.DataFrame:
 
 
 def query_storage(site_id: str, start_date, end_date) -> pd.DataFrame:
-    if _exports_ready():
-        storage = _read_export("smart_charging_opportunities.csv")
+    if _active_ready():
+        storage = _active_table("smart_charging_opportunities.csv")
         if storage.empty:
             return pd.DataFrame()
         storage["connection_time"] = pd.to_datetime(storage["connection_time"], utc=True)
@@ -735,7 +1009,7 @@ def query_storage(site_id: str, start_date, end_date) -> pd.DataFrame:
         df["month_start"] = pd.to_datetime(df["month_start"])
         return df
 
-    storage = _read_export("smart_charging_opportunities.csv")
+    storage = _active_table("smart_charging_opportunities.csv")
     if storage.empty:
         return pd.DataFrame()
     storage["connection_time"] = pd.to_datetime(storage["connection_time"], utc=True)
@@ -762,8 +1036,35 @@ def query_storage(site_id: str, start_date, end_date) -> pd.DataFrame:
     )
 
 
+with st.sidebar:
+    st.header("Data Source")
+    uploaded_file = st.file_uploader(
+        "Upload charging sessions",
+        type=["csv", "json"],
+        help=(
+            "Upload an ACN JSON export or a session-level CSV with start time, "
+            "end/duration, station, and kWh columns."
+        ),
+    )
+    if uploaded_file is not None:
+        try:
+            ACTIVE_DATA = parse_uploaded_dataset(
+                uploaded_file.name,
+                uploaded_file.getvalue(),
+            )
+            uploaded_sessions = ACTIVE_DATA["sessions"]
+            if isinstance(uploaded_sessions, pd.DataFrame):
+                st.success(f"Loaded {len(uploaded_sessions):,} uploaded sessions")
+        except Exception as exc:
+            ACTIVE_DATA = None
+            st.error(f"Upload could not be parsed: {exc}")
+
 sites, min_date, max_date = load_filter_options()
-source_label = "CSV exports" if _exports_ready() else ("PostgreSQL" if db_available() else "No data")
+source_label = (
+    str(ACTIVE_DATA["label"])
+    if ACTIVE_DATA is not None
+    else ("CSV exports" if _exports_ready() else ("PostgreSQL" if db_available() else "No data"))
+)
 
 st.markdown(
     f"""
@@ -821,6 +1122,7 @@ peak_kw = float(load_curve["p95_kw"].max()) if not load_curve.empty else 0.0
 avg_utilization = float(daily["utilization_rate"].mean() * 100) if not daily.empty else 0.0
 shiftable_kwh = float(storage["shiftable_kwh"].sum()) if not storage.empty else 0.0
 savings_usd = float(storage["savings_usd"].sum()) if not storage.empty else 0.0
+control_mode = "UPLOAD LIVE" if ACTIVE_DATA is not None else ("CSV LIVE" if _exports_ready() else "SQL LIVE")
 
 ops_tape(
     [
@@ -829,7 +1131,7 @@ ops_tape(
         ("Storage Flex", format_compact(shiftable_kwh, " kWh"), "hot"),
         ("Arbitrage", f"${savings_usd:,.0f}", "hot"),
         ("Data Window", f"{start_date:%b %Y} - {end_date:%b %Y}", ""),
-        ("Control Mode", "CSV LIVE", "blue"),
+        ("Control Mode", control_mode, "blue"),
     ]
 )
 

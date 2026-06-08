@@ -108,6 +108,15 @@ scripts\run_streamlit.cmd
 
 This creates real-data CSVs in `data\exports/` for the Streamlit and Tableau views. Later, when Docker Desktop is available, run the PostgreSQL ELT path for the full database-backed version.
 
+## Upload Your Own Dataset In The Dashboard
+
+The Streamlit dashboard sidebar includes an upload control for ad hoc analysis. Supported upload types:
+
+- ACN-style `.json` session exports.
+- Session-level `.csv` files with start time, energy/kWh, and preferably end time or duration.
+
+Common CSV column names are detected automatically, including `start_time`, `end_time`, `station_id`, `charge_point_id`, `total_kwh`, `energy_kwh`, `duration`, and similar variants. Uploaded files are analyzed in memory for the current browser session and do not overwrite `data/exports/`.
+
 Edit `.env` with your ACN API token:
 
 ```env
