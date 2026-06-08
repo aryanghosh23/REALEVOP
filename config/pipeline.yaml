@@ -1,0 +1,27 @@
+project:
+  name: EV Charging Energy Consumption Analytics & Optimization Dashboard
+  primary_dataset: ACN-Data
+  timezone: America/Los_Angeles
+
+acn:
+  base_url: https://ev.caltech.edu/api/v1/
+  default_site: caltech
+  sites:
+    caltech: Caltech campus garage
+    jpl: NASA Jet Propulsion Laboratory
+    office001: Silicon Valley office site
+
+analytics:
+  charger_power_kw_assumption: 6.6
+  peak_hours_local: [16, 17, 18, 19, 20]
+  off_peak_hours_local: [0, 1, 2, 3, 4, 5]
+  tariff:
+    peak_energy_rate_per_kwh: 0.42
+    off_peak_energy_rate_per_kwh: 0.18
+    mid_peak_energy_rate_per_kwh: 0.28
+    demand_charge_per_kw_month: 20.00
+  storage:
+    battery_round_trip_efficiency: 0.90
+    dispatch_kw_cap: 250
+    reserve_soc_pct: 20
+

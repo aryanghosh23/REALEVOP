@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: ev_charging_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ev_charging
+      POSTGRES_USER: ev_user
+      POSTGRES_PASSWORD: ev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ev_charging_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ev_user -d ev_charging"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ev_charging_pgdata:
+
