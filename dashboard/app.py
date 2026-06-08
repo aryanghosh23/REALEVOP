@@ -32,7 +32,15 @@ def get_engine():
         "DATABASE_URL",
         "postgresql+psycopg2://ev_user:ev_password@localhost:5432/ev_charging",
     )
-    return create_engine(database_url, pool_pre_ping=True, future=True)
+    connect_args = {}
+    if database_url.startswith("postgresql"):
+        connect_args["connect_timeout"] = 2
+    return create_engine(
+        database_url,
+        pool_pre_ping=True,
+        future=True,
+        connect_args=connect_args,
+    )
 
 
 def _read_export(filename: str) -> pd.DataFrame:
@@ -40,6 +48,16 @@ def _read_export(filename: str) -> pd.DataFrame:
     if path.exists():
         return pd.read_csv(path)
     return pd.DataFrame()
+
+
+def _exports_ready() -> bool:
+    required = [
+        "sessions.csv",
+        "hourly_site_load.csv",
+        "daily_site_metrics.csv",
+        "smart_charging_opportunities.csv",
+    ]
+    return all((EXPORT_DIR / filename).exists() for filename in required)
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -53,6 +71,16 @@ def read_sql(query: str, params: dict | None = None) -> pd.DataFrame:
 
 
 def load_filter_options() -> tuple[list[str], pd.Timestamp | None, pd.Timestamp | None]:
+    if _exports_ready():
+        sessions = _read_export("sessions.csv")
+        if not sessions.empty:
+            sessions["connection_date"] = pd.to_datetime(sessions["connection_date"])
+            return (
+                sorted(sessions["site_id"].dropna().unique().tolist()),
+                sessions["connection_date"].min(),
+                sessions["connection_date"].max(),
+            )
+
     df = read_sql(
         """
         SELECT
@@ -81,11 +109,37 @@ def load_filter_options() -> tuple[list[str], pd.Timestamp | None, pd.Timestamp 
 
 
 def db_available() -> bool:
+    if _exports_ready():
+        return False
     probe = read_sql("SELECT 1 AS ok")
     return not probe.empty
 
 
 def query_kpis(site_id: str, start_date, end_date) -> pd.DataFrame:
+    if _exports_ready():
+        sessions = _read_export("sessions.csv")
+        if sessions.empty:
+            return pd.DataFrame()
+        sessions["connection_date"] = pd.to_datetime(sessions["connection_date"]).dt.date
+        mask = (
+            (sessions["site_id"] == site_id)
+            & (sessions["connection_date"] >= start_date)
+            & (sessions["connection_date"] <= end_date)
+        )
+        filtered = sessions.loc[mask]
+        return pd.DataFrame(
+            [
+                {
+                    "sessions": len(filtered),
+                    "stations": filtered["station_id"].nunique(),
+                    "total_kwh": filtered["kwh_delivered"].sum(),
+                    "avg_kwh_per_session": filtered["kwh_delivered"].mean(),
+                    "avg_duration_hr": filtered["session_duration_min"].mean() / 60.0,
+                    "avg_idle_hr": filtered["idle_duration_min"].mean() / 60.0,
+                }
+            ]
+        )
+
     df = read_sql(
         """
         SELECT
@@ -129,6 +183,25 @@ def query_kpis(site_id: str, start_date, end_date) -> pd.DataFrame:
 
 
 def query_heatmap(site_id: str, start_date, end_date) -> pd.DataFrame:
+    if _exports_ready():
+        hourly = _read_export("hourly_site_load.csv")
+        if hourly.empty:
+            return pd.DataFrame()
+        hourly["hour_bucket_local"] = pd.to_datetime(hourly["hour_bucket_local"])
+        mask = (
+            (hourly["site_id"] == site_id)
+            & (hourly["hour_bucket_local"].dt.date >= start_date)
+            & (hourly["hour_bucket_local"].dt.date <= end_date)
+        )
+        df = (
+            hourly.loc[mask]
+            .groupby(["local_isodow", "local_hour"], as_index=False)["estimated_kwh"]
+            .sum()
+            .rename(columns={"estimated_kwh": "total_kwh"})
+        )
+        df["day"] = df["local_isodow"].map(DAY_LABELS)
+        return df
+
     df = read_sql(
         """
         SELECT
@@ -164,6 +237,19 @@ def query_heatmap(site_id: str, start_date, end_date) -> pd.DataFrame:
 
 
 def query_daily(site_id: str, start_date, end_date) -> pd.DataFrame:
+    if _exports_ready():
+        df = _read_export("daily_site_metrics.csv")
+        if df.empty:
+            return df
+        df["metric_date"] = pd.to_datetime(df["metric_date"]).dt.date
+        df = df[
+            (df["site_id"] == site_id)
+            & (df["metric_date"] >= start_date)
+            & (df["metric_date"] <= end_date)
+        ].sort_values("metric_date")
+        df["metric_date"] = pd.to_datetime(df["metric_date"])
+        return df
+
     df = read_sql(
         """
         SELECT
@@ -195,6 +281,22 @@ def query_daily(site_id: str, start_date, end_date) -> pd.DataFrame:
 
 
 def query_load_curve(site_id: str, start_date, end_date) -> pd.DataFrame:
+    if _exports_ready():
+        hourly = _read_export("hourly_site_load.csv")
+        if hourly.empty:
+            return pd.DataFrame()
+        hourly["hour_bucket_local"] = pd.to_datetime(hourly["hour_bucket_local"])
+        mask = (
+            (hourly["site_id"] == site_id)
+            & (hourly["hour_bucket_local"].dt.date >= start_date)
+            & (hourly["hour_bucket_local"].dt.date <= end_date)
+        )
+        return (
+            hourly.loc[mask]
+            .groupby("local_hour", as_index=False)["estimated_avg_kw"]
+            .agg(avg_kw="mean", p95_kw=lambda x: x.quantile(0.95))
+        )
+
     df = read_sql(
         """
         SELECT
@@ -229,6 +331,28 @@ def query_load_curve(site_id: str, start_date, end_date) -> pd.DataFrame:
 
 
 def query_storage(site_id: str, start_date, end_date) -> pd.DataFrame:
+    if _exports_ready():
+        storage = _read_export("smart_charging_opportunities.csv")
+        if storage.empty:
+            return pd.DataFrame()
+        storage["connection_time"] = pd.to_datetime(storage["connection_time"])
+        mask = (
+            (storage["site_id"] == site_id)
+            & (storage["connection_time"].dt.date >= start_date)
+            & (storage["connection_time"].dt.date <= end_date)
+        )
+        storage = storage.loc[mask].copy()
+        storage["month_start"] = storage["connection_time"].dt.to_period("M").dt.to_timestamp()
+        return (
+            storage.groupby("month_start", as_index=False)
+            .agg(
+                shiftable_kwh=("shiftable_kwh", "sum"),
+                savings_usd=("estimated_energy_cost_savings_usd", "sum"),
+                flexible_sessions=("shiftable_kwh", lambda x: int((x > 0).sum())),
+            )
+            .sort_values("month_start")
+        )
+
     df = read_sql(
         """
         SELECT
@@ -432,4 +556,3 @@ if not storage.empty:
         "for small sites, Megapack dispatch for fleet or campus peaks, and VPP enrollment "
         "when aggregate load can respond predictably."
     )
-
