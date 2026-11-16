@@ -218,4 +218,15 @@ scripts\run_streamlit.cmd
 
 The script prints `http://localhost:8501` and keeps the terminal busy while the dashboard is running. Press `Ctrl+C` in that terminal to stop it.
 
+## Data quality acceptance criteria
 
+Before publishing dashboard figures or exporting real-data results, verify:
+
+- Session identifiers are unique at the intended fact-table grain; duplicates are investigated rather than silently counted twice.
+- Start and end timestamps are parsed consistently, and duration is nonnegative. Local-hour analyses use the site's timezone.
+- Energy values are nonnegative; missing values are identified separately from genuine zero-energy sessions.
+- Hourly energy estimates reconcile to session energy within an explicitly documented rounding tolerance.
+- Charger utilization denominators reflect the observed station population and reporting interval.
+- Synthetic demo exports are clearly distinguished from ACN-derived results.
+
+Record any failed checks and their affected record counts before interpreting peak demand, utilization or potential smart-charging savings. Estimated hourly power derived from session totals is not a measured time-series load profile.
